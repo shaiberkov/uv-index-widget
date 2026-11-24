@@ -28,8 +28,8 @@ class UvWorker(context: Context, params: WorkerParameters) : CoroutineWorker(con
         val trigger = runCatching { Trigger.valueOf(inputData.getString(KEY_TRIGGER) ?: "") }
             .getOrDefault(Trigger.AUTO)
         UvRepository.update(applicationContext, trigger)
-        UvWidget.pushToWidgets(applicationContext, refreshing = false)
-        runCatching { UpdateChecker.checkAndNotify(applicationContext) }   // ~every 6 h
+        runCatching { UpdateChecker.checkAndNotify(applicationContext) }   // GitHub at most once an hour
+        UvWidget.pushToWidgets(applicationContext, refreshing = false)     // also shows "⬆ עדכון זמין"
         // Retries are handled by RefreshPolicy's backoff, not by WorkManager.
         return Result.success()
     }

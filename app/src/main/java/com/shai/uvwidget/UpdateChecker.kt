@@ -29,7 +29,7 @@ data class UpdateInfo(val version: String, val apkUrl: String, val notes: String
  */
 object UpdateChecker {
     private const val PREFS = "uv_update"
-    private const val CHECK_EVERY = 6 * 60 * 60 * 1000L     // GitHub allows 60 calls/hour – we use ~4/day
+    private const val CHECK_EVERY = 60 * 60 * 1000L         // once an hour – GitHub allows 60 calls/hour
     private const val CHANNEL = "uv_update"
 
     private fun prefs(c: Context) = c.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
