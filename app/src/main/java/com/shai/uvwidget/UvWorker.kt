@@ -67,6 +67,7 @@ class UvWorker(context: Context, params: WorkerParameters) : CoroutineWorker(con
             wm.cancelUniqueWork("uv_periodic")   // old 30-min schedule from v1.x
             val req = PeriodicWorkRequestBuilder<UvWorker>(15, TimeUnit.MINUTES).build()
             wm.enqueueUniquePeriodicWork(PERIODIC, ExistingPeriodicWorkPolicy.KEEP, req)
+            ClockTick.schedule(context)   // keeps "now" right even when this tick is held back
         }
 
         /** Refresh right now – expedited so it starts within seconds. */
@@ -81,6 +82,7 @@ class UvWorker(context: Context, params: WorkerParameters) : CoroutineWorker(con
 
         fun cancel(context: Context) {
             WorkManager.getInstance(context).cancelUniqueWork(PERIODIC)
+            ClockTick.cancel(context)
         }
     }
 }
