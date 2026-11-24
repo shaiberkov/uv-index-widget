@@ -31,8 +31,6 @@ class MainActivity : ComponentActivity() {
     private lateinit var status: TextView
     private lateinit var updateButton: Button
     private lateinit var sky: SkyView
-    private var realScene: SkyScene = SkyScene.NOON
-    private var previewIndex = -1   // -1 = showing the real weather
     private var update: UpdateInfo? = null
     private var downloadedApk: File? = null
 
@@ -72,9 +70,7 @@ class MainActivity : ComponentActivity() {
             if (it == null) {
                 status.text = "⚠️ ${out.error ?: out.reason}"
             } else {
-                realScene = SkyScene.pick(it)
-                previewIndex = -1
-                sky.scene = realScene
+                sky.scene = SkyScene.pick(it)
                 val level = UvLevel.of(it.uvNow, it.isDay)
                 val time = java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault())
                     .format(java.util.Date(it.updatedAt))
@@ -130,27 +126,12 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    /** Step through all backgrounds; after the last one, back to the real weather. */
-    private fun previewNextScene() {
-        val all = SkyScene.entries
-        previewIndex = if (previewIndex + 1 >= all.size) -1 else previewIndex + 1
-        if (previewIndex == -1) {
-            sky.scene = realScene
-            previewButton.text = "🎨  תצוגת כל הרקעים"
-        } else {
-            val s = all[previewIndex]
-            sky.scene = s
-            previewButton.text = "🎨  ${s.icon} ${s.label} · ${previewIndex + 1}/${all.size}"
-        }
-    }
-
-    private lateinit var previewButton: Button
-
     private fun buildUi(): View {
         val dp = resources.displayMetrics.density
+        // The background always follows the current weather; it can't be changed by hand.
         sky = SkyView(this).apply {
             layoutParams = android.widget.FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT)
-            UvStore.load(this@MainActivity)?.let { d -> realScene = SkyScene.pick(d, System.currentTimeMillis()); scene = realScene }
+            UvStore.load(this@MainActivity)?.let { d -> scene = SkyScene.pick(d, System.currentTimeMillis()) }
         }
         fun button(text: String, solid: Boolean = false, onClick: () -> Unit) = Button(this).apply {
             this.text = text
@@ -198,8 +179,6 @@ class MainActivity : ComponentActivity() {
                 if (UvRepository.hasLocationPermission(this@MainActivity)) refresh()
                 else askLocation.launch(arrayOf(Manifest.permission.ACCESS_COARSE_LOCATION))
             })
-            previewButton = button("🎨  תצוגת כל הרקעים") { previewNextScene() }
-            addView(previewButton)
             addView(TextView(context).apply {
                 text = "גרסה ${BuildConfig.VERSION_NAME}"
                 textSize = 12f
