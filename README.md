@@ -11,7 +11,7 @@ Data: [Open-Meteo](https://open-meteo.com) (free, no API key).
 2. Open it on the phone and allow "install unknown apps" for your browser / file manager.
 3. Open **UV Index**, allow location, tap **"הוסף ווידג'ט למסך הבית"**.
 
-Updates: the app checks this repo's releases every ~6 hours (and whenever it's opened)
+Updates: the app checks this repo's releases every hour (and whenever it's opened)
 and offers a one-tap update.
 
 ## How it works
@@ -33,7 +33,7 @@ Fully automatic – **merge to `main`** and GitHub Actions does the rest
 1. Bumps the version from the last tag (`v1.7` → `v1.8` …; `#major` in a commit → `v2.0`).
 2. Builds an APK signed with the release key (stored as repository secrets).
 3. Publishes a GitHub Release with notes made from the commit messages.
-4. Installed apps notice it within ~6 h (instantly when opened) and offer a one-tap update.
+4. Installed apps notice it within ~1 h (notification + "⬆ עדכון זמין" on the widget) (instantly when opened) and offer a one-tap update.
 
 - Changes that don't touch the app (README, docs) don't release.
 - `[skip release]` in the merge message → merge without releasing.

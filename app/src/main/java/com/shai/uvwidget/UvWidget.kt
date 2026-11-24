@@ -25,6 +25,7 @@ import androidx.glance.appwidget.GlanceAppWidgetReceiver
 import androidx.glance.appwidget.SizeMode
 import androidx.glance.appwidget.action.ActionCallback
 import androidx.glance.appwidget.action.actionRunCallback
+import androidx.glance.action.actionStartActivity
 import androidx.glance.appwidget.cornerRadius
 import androidx.glance.appwidget.provideContent
 import androidx.glance.background
@@ -65,7 +66,8 @@ class UvWidget : GlanceAppWidget() {
             val error = if (prefs[DATA_KEY] != null || prefs[ERROR_KEY] != null) prefs[ERROR_KEY] else seedError
             val refreshing = prefs[REFRESHING_KEY] == true
             val status = prefs[STATUS_KEY]
-            if (data == null) EmptyState(error) else UvCard(data, error, refreshing, status)
+            val update = prefs[UPDATE_KEY]
+            if (data == null) EmptyState(error) else UvCard(data, error, refreshing, status, update)
         }
     }
 
@@ -74,11 +76,13 @@ class UvWidget : GlanceAppWidget() {
         private val ERROR_KEY = stringPreferencesKey("uv_error")
         private val REFRESHING_KEY = booleanPreferencesKey("uv_refreshing")
         private val STATUS_KEY = stringPreferencesKey("uv_status")
+        private val UPDATE_KEY = stringPreferencesKey("uv_update")
 
         /** Copy the latest stored reading into every placed widget and redraw it. */
         suspend fun pushToWidgets(context: Context, refreshing: Boolean = false, status: String? = null) {
             val data = UvStore.load(context)
             val error = UvStore.error(context)
+            val update = UpdateChecker.cached(context)?.version   // offline; null once installed
             val widget = UvWidget()
             GlanceAppWidgetManager(context).getGlanceIds(UvWidget::class.java).forEach { id ->
                 updateAppWidgetState(context, id) { prefs ->
@@ -86,6 +90,7 @@ class UvWidget : GlanceAppWidget() {
                     if (error != null) prefs[ERROR_KEY] = error else prefs.remove(ERROR_KEY)
                     prefs[REFRESHING_KEY] = refreshing
                     if (status != null) prefs[STATUS_KEY] = status else prefs.remove(STATUS_KEY)
+                    if (update != null) prefs[UPDATE_KEY] = update else prefs.remove(UPDATE_KEY)
                 }
                 widget.update(context, id)
             }
@@ -143,6 +148,7 @@ private val WhiteSoft = ColorProvider(Color.White.copy(alpha = 0.78f))
 private val WhiteFaint = ColorProvider(Color.White.copy(alpha = 0.22f))
 private val BarDim = ColorProvider(Color.White.copy(alpha = 0.38f))
 private val ErrorTint = ColorProvider(Color(0xFFFFC2B8))
+private val UpdateInk = ColorProvider(Color(0xFF1B1F3B))
 
 private fun backgroundFor(level: UvLevel) = when (level) {
     UvLevel.LOW -> R.drawable.bg_uv_low
@@ -156,7 +162,7 @@ private fun backgroundFor(level: UvLevel) = when (level) {
 private fun hh(hour: Int) = String.format(Locale.US, "%02d:00", hour)
 
 @Composable
-private fun UvCard(d: UvData, error: String?, refreshing: Boolean, status: String?) {
+private fun UvCard(d: UvData, error: String?, refreshing: Boolean, status: String?, update: String?) {
     val level = UvLevel.of(d.uvNow, d.isDay)
     val size = LocalSize.current
     val showChart = size.height >= 130.dp
@@ -242,18 +248,35 @@ private fun UvCard(d: UvData, error: String?, refreshing: Boolean, status: Strin
                     )
                 }
                 Spacer(GlanceModifier.defaultWeight())
-                Text(
-                    text = when {
-                        status != null -> status
-                        refreshing -> "מרענן…"
-                        else -> "↻ " + SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(d.checkedAt))
-                    },
-                    style = TextStyle(
-                        color = if (status != null) White else WhiteSoft,
-                        fontSize = 11.sp,
-                        fontWeight = if (status != null) FontWeight.Bold else FontWeight.Normal,
-                    ),
-                )
+                if (update != null && status == null && !refreshing) {
+                    // New version available: a pill that opens the app straight on the update button.
+                    Box(
+                        modifier = GlanceModifier
+                            .background(White)
+                            .cornerRadius(50.dp)
+                            .padding(horizontal = 10.dp, vertical = 3.dp)
+                            .clickable(actionStartActivity<MainActivity>()),
+                    ) {
+                        Text(
+                            text = "⬆ עדכון זמין · $update",
+                            style = TextStyle(color = UpdateInk, fontSize = 11.sp, fontWeight = FontWeight.Bold),
+                            maxLines = 1,
+                        )
+                    }
+                } else {
+                    Text(
+                        text = when {
+                            status != null -> status
+                            refreshing -> "מרענן…"
+                            else -> "↻ " + SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(d.checkedAt))
+                        },
+                        style = TextStyle(
+                            color = if (status != null) White else WhiteSoft,
+                            fontSize = 11.sp,
+                            fontWeight = if (status != null) FontWeight.Bold else FontWeight.Normal,
+                        ),
+                    )
+                }
             }
         }
     }
