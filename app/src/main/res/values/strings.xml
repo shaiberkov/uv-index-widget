@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">UV Index</string>
+    <string name="widget_name">מדד UV</string>
+    <string name="widget_description">מדד קרינת UV לפי המיקום והשעה שלך</string>
+</resources>
