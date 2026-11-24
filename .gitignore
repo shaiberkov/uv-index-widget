@@ -7,3 +7,6 @@ local.properties
 *.jks
 *.keystore
 key.properties
+
+# graphify (local knowledge graph, rebuilt by git hooks)
+graphify-out/
