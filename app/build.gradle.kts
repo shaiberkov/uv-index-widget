@@ -5,12 +5,20 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
-// Release signing key lives OUTSIDE the repo (never commit it).
-// Path can be overridden with the UVWIDGET_KEY_PROPS environment variable.
+// ---- Release signing ----
+// On GitHub Actions the key comes from repository secrets (env vars).
+// Locally it comes from a key.properties file OUTSIDE the repo (never commit it).
 val keyPropsFile = file(
     System.getenv("UVWIDGET_KEY_PROPS") ?: "C:/Users/shaib/Documents/UvWidget-signing/key.properties"
 )
 val keyProps = Properties().apply { if (keyPropsFile.exists()) keyPropsFile.inputStream().use { load(it) } }
+fun signing(env: String, prop: String): String? = System.getenv(env) ?: keyProps.getProperty(prop)
+val keystorePath = signing("UVWIDGET_KEYSTORE_FILE", "storeFile")
+
+// ---- Version ----
+// CI passes -PappVersionName=1.8 -PappVersionCode=123; local builds use the defaults.
+val appVersionName = (findProperty("appVersionName") as String?) ?: "1.7"
+val appVersionCode = (findProperty("appVersionCode") as String?)?.toInt() ?: 8
 
 android {
     namespace = "com.shai.uvwidget"
@@ -20,19 +28,19 @@ android {
         applicationId = "com.shai.uvwidget"
         minSdk = 26
         targetSdk = 35
-        versionCode = 8
-        versionName = "1.7"
+        versionCode = appVersionCode
+        versionName = appVersionName
         // Where the app looks for new versions (GitHub Releases).
         buildConfigField("String", "GITHUB_REPO", "\"shaiberkov/uv-index-widget\"")
     }
 
     signingConfigs {
-        if (keyPropsFile.exists()) {
+        if (keystorePath != null && file(keystorePath).exists()) {
             create("release") {
-                storeFile = file(keyProps.getProperty("storeFile"))
-                storePassword = keyProps.getProperty("storePassword")
-                keyAlias = keyProps.getProperty("keyAlias")
-                keyPassword = keyProps.getProperty("keyPassword")
+                storeFile = file(keystorePath)
+                storePassword = signing("UVWIDGET_KEYSTORE_PASSWORD", "storePassword")
+                keyAlias = signing("UVWIDGET_KEY_ALIAS", "keyAlias")
+                keyPassword = signing("UVWIDGET_KEY_PASSWORD", "keyPassword")
             }
         }
     }

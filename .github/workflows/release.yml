@@ -1,0 +1,106 @@
+# Every merge to main that touches the app → a new signed release that
+# every installed copy offers as an update.
+#
+#   - Version is bumped automatically from the last tag: v1.7 → v1.8 → v1.9 …
+#     Put "#major" in a commit message to jump to the next major (v1.9 → v2.0).
+#   - Put "[skip release]" in the merge/commit message to merge without releasing.
+#   - Changes that don't touch the app (README, docs…) never release.
+#   - You can also run it by hand: Actions → Release → Run workflow.
+name: Release
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "app/**"
+      - "build.gradle.kts"
+      - "settings.gradle.kts"
+      - "gradle.properties"
+      - "gradle/**"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    if: ${{ !contains(github.event.head_commit.message, '[skip release]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0          # full history + tags, needed for versioning and notes
+
+      - name: Work out the next version
+        id: version
+        run: |
+          last=$(git tag --list 'v*' --sort=-v:refname | head -n1)
+          last=${last:-v1.0}
+          major=$(echo "${last#v}" | cut -d. -f1)
+          minor=$(echo "${last#v}" | cut -d. -f2)
+          if git log "$last"..HEAD --format=%B | grep -q '#major'; then
+            major=$((major + 1)); minor=0
+          else
+            minor=$((minor + 1))
+          fi
+          name="$major.$minor"
+          # Monotonic on main: commit count (+100 to stay above the hand-made builds).
+          code=$(( $(git rev-list --count HEAD) + 100 ))
+          echo "last=$last" >> "$GITHUB_OUTPUT"
+          echo "name=$name" >> "$GITHUB_OUTPUT"
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+          echo "Releasing v$name (versionCode $code), previous $last"
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Restore signing key from secrets
+        env:
+          KEYSTORE_B64: ${{ secrets.UVWIDGET_KEYSTORE_BASE64 }}
+        run: |
+          if [ -z "$KEYSTORE_B64" ]; then echo "::error::Secret UVWIDGET_KEYSTORE_BASE64 is missing"; exit 1; fi
+          echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.jks"
+
+      - name: Build signed APK
+        env:
+          UVWIDGET_KEYSTORE_FILE: ${{ runner.temp }}/release.jks
+          UVWIDGET_KEYSTORE_PASSWORD: ${{ secrets.UVWIDGET_KEYSTORE_PASSWORD }}
+          UVWIDGET_KEY_ALIAS: ${{ secrets.UVWIDGET_KEY_ALIAS }}
+          UVWIDGET_KEY_PASSWORD: ${{ secrets.UVWIDGET_KEY_PASSWORD }}
+        run: |
+          bash ./gradlew assembleRelease --no-daemon \
+            -PappVersionName=${{ steps.version.outputs.name }} \
+            -PappVersionCode=${{ steps.version.outputs.code }}
+          apk=app/build/outputs/apk/release/app-release.apk
+          # Refuse to publish an unsigned or wrongly signed APK – installed apps couldn't update to it.
+          "$ANDROID_HOME"/build-tools/$(ls "$ANDROID_HOME"/build-tools | sort -V | tail -n1)/apksigner verify --print-certs "$apk" | tee certs.txt
+          grep -q "CN=UV Index" certs.txt
+          cp "$apk" "UvIndex-${{ steps.version.outputs.name }}.apk"
+
+      - name: Release notes from commits
+        run: |
+          last=${{ steps.version.outputs.last }}
+          range="$last..HEAD"; git rev-parse -q --verify "$last" >/dev/null || range=HEAD
+          {
+            echo "## מה חדש"
+            git log "$range" --no-merges --format='- %s' | grep -v '\[skip release\]' || true
+          } > notes.md
+          cat notes.md
+
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "v${{ steps.version.outputs.name }}" \
+            "UvIndex-${{ steps.version.outputs.name }}.apk" \
+            --target "$GITHUB_SHA" \
+            --title "UV Index ${{ steps.version.outputs.name }}" \
+            --notes-file notes.md
