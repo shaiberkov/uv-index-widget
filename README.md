@@ -27,8 +27,19 @@ and offers a one-tap update.
 
 ## Releasing a new version
 
-```powershell
-.\release.ps1 -Version 1.8 -Notes "מה חדש"
-```
+Fully automatic – **merge to `main`** and GitHub Actions does the rest
+([`.github/workflows/release.yml`](.github/workflows/release.yml)):
 
-Needs the signing key in `Documents\UvWidget-signing` (not in this repo – keep a backup!).
+1. Bumps the version from the last tag (`v1.7` → `v1.8` …; `#major` in a commit → `v2.0`).
+2. Builds an APK signed with the release key (stored as repository secrets).
+3. Publishes a GitHub Release with notes made from the commit messages.
+4. Installed apps notice it within ~6 h (instantly when opened) and offer a one-tap update.
+
+- Changes that don't touch the app (README, docs) don't release.
+- `[skip release]` in the merge message → merge without releasing.
+- Pull requests are build-checked first ([`build.yml`](.github/workflows/build.yml)).
+- Manual run: **Actions → Release → Run workflow**.
+
+Signing secrets: `UVWIDGET_KEYSTORE_BASE64`, `UVWIDGET_KEYSTORE_PASSWORD`,
+`UVWIDGET_KEY_ALIAS`, `UVWIDGET_KEY_PASSWORD`. The original key file is kept
+outside the repo (`Documents\UvWidget-signing`) – keep a backup!
