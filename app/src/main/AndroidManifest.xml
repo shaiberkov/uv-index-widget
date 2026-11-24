@@ -8,6 +8,13 @@
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <!-- Exact alarm on the hour so the "now" bar switches on time.
+         USE_EXACT_ALARM is granted automatically on Android 13+; 12 uses SCHEDULE_EXACT_ALARM. -->
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
+    <uses-permission
+        android:name="android.permission.SCHEDULE_EXACT_ALARM"
+        android:maxSdkVersion="32" />
 
     <application
         android:allowBackup="true"
@@ -36,6 +43,17 @@
             <meta-data
                 android:name="android.appwidget.provider"
                 android:resource="@xml/uv_widget_info" />
+        </receiver>
+        <!-- Half-hourly offline redraw; also re-armed after reboot, app update or a clock change. -->
+        <receiver
+            android:name=".ClockTick"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                <action android:name="android.intent.action.TIME_SET" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+            </intent-filter>
         </receiver>
         <provider
             android:name="androidx.core.content.FileProvider"
