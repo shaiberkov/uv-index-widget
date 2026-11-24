@@ -135,9 +135,8 @@ class RefreshAction : ActionCallback {
         } else {
             // Data is fresh enough: recompute "now" from the cache, no network,
             // and flash a short confirmation inside the widget itself.
-            val out = UvRepository.update(context, Trigger.MANUAL)
-            val loaded = out.data?.let { SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(it.updatedAt)) }
-            UvWidget.pushToWidgets(context, status = if (loaded != null) "✓ עדכני · נטען $loaded" else "✓ עדכני")
+            UvRepository.update(context, Trigger.MANUAL)
+            UvWidget.pushToWidgets(context, status = "✓ עדכני")
             delay(4_000)
             UvWidget.pushToWidgets(context)
         }
