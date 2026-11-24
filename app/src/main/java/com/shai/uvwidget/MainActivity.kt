@@ -30,6 +30,9 @@ class MainActivity : ComponentActivity() {
 
     private lateinit var status: TextView
     private lateinit var updateButton: Button
+    private lateinit var sky: SkyView
+    private var realScene: SkyScene = SkyScene.NOON
+    private var previewIndex = -1   // -1 = showing the real weather
     private var update: UpdateInfo? = null
     private var downloadedApk: File? = null
 
@@ -69,6 +72,9 @@ class MainActivity : ComponentActivity() {
             if (it == null) {
                 status.text = "⚠️ ${out.error ?: out.reason}"
             } else {
+                realScene = SkyScene.pick(it)
+                previewIndex = -1
+                sky.scene = realScene
                 val level = UvLevel.of(it.uvNow, it.isDay)
                 val time = java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault())
                     .format(java.util.Date(it.updatedAt))
@@ -124,8 +130,28 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun buildUi(): LinearLayout {
+    /** Step through all backgrounds; after the last one, back to the real weather. */
+    private fun previewNextScene() {
+        val all = SkyScene.entries
+        previewIndex = if (previewIndex + 1 >= all.size) -1 else previewIndex + 1
+        if (previewIndex == -1) {
+            sky.scene = realScene
+            previewButton.text = "🎨  תצוגת כל הרקעים"
+        } else {
+            val s = all[previewIndex]
+            sky.scene = s
+            previewButton.text = "🎨  ${s.icon} ${s.label} · ${previewIndex + 1}/${all.size}"
+        }
+    }
+
+    private lateinit var previewButton: Button
+
+    private fun buildUi(): View {
         val dp = resources.displayMetrics.density
+        sky = SkyView(this).apply {
+            layoutParams = android.widget.FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT)
+            UvStore.load(this@MainActivity)?.let { d -> realScene = SkyScene.pick(d, System.currentTimeMillis()); scene = realScene }
+        }
         fun button(text: String, solid: Boolean = false, onClick: () -> Unit) = Button(this).apply {
             this.text = text
             setTextColor(if (solid) Color.parseColor("#E8430C") else Color.WHITE)
@@ -142,15 +168,11 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        return LinearLayout(this).apply {
+        val content = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
             setPadding((28 * dp).toInt(), (28 * dp).toInt(), (28 * dp).toInt(), (28 * dp).toInt())
-            background = GradientDrawable(
-                GradientDrawable.Orientation.TL_BR,
-                intArrayOf(Color.parseColor("#FF8A3D"), Color.parseColor("#E8430C"), Color.parseColor("#8E2DE2")),
-            )
-            layoutParams = LinearLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT)
+            layoutParams = android.widget.FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT)
 
             addView(TextView(context).apply {
                 text = "☀️ UV Index"
@@ -158,10 +180,12 @@ class MainActivity : ComponentActivity() {
                 setTextColor(Color.WHITE)
                 typeface = Typeface.DEFAULT_BOLD
                 gravity = Gravity.CENTER
+                setShadowLayer(12 * dp, 0f, 1 * dp, Color.argb(90, 0, 0, 0))
             })
             status = TextView(context).apply {
                 textSize = 17f
                 setTextColor(Color.WHITE)
+                setShadowLayer(10 * dp, 0f, 1 * dp, Color.argb(110, 0, 0, 0))
                 gravity = Gravity.CENTER
                 setPadding(0, (24 * dp).toInt(), 0, (24 * dp).toInt())
                 layoutParams = LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT)
@@ -174,13 +198,21 @@ class MainActivity : ComponentActivity() {
                 if (UvRepository.hasLocationPermission(this@MainActivity)) refresh()
                 else askLocation.launch(arrayOf(Manifest.permission.ACCESS_COARSE_LOCATION))
             })
+            previewButton = button("🎨  תצוגת כל הרקעים") { previewNextScene() }
+            addView(previewButton)
             addView(TextView(context).apply {
                 text = "גרסה ${BuildConfig.VERSION_NAME}"
                 textSize = 12f
                 setTextColor(Color.argb(200, 255, 255, 255))
+                setShadowLayer(8 * dp, 0f, 1 * dp, Color.argb(90, 0, 0, 0))
                 gravity = Gravity.CENTER
                 setPadding(0, (16 * dp).toInt(), 0, 0)
             })
+        }
+        return android.widget.FrameLayout(this).apply {
+            setBackgroundColor(Color.BLACK)
+            addView(sky)
+            addView(content)
         }
     }
 }

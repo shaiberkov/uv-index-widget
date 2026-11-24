@@ -57,6 +57,8 @@ object RefreshPolicy {
             return Decision(false, "ממתין אחרי שגיאה")
         }
         if (cache == null || !cache.covers(now + 3 * 3_600_000L)) return Decision(true, "אין נתונים להמשך היום")
+        // Caches saved by older versions have no weather conditions for the background.
+        if (!cache.hasWeather) return Decision(true, "חסרים נתוני מזג אוויר")
 
         val moved = FloatArray(1).also {
             Location.distanceBetween(cache.lat, cache.lon, location.first, location.second, it)

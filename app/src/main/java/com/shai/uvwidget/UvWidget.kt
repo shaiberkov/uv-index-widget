@@ -3,6 +3,9 @@ package com.shai.uvwidget
 import android.content.Context
 import kotlinx.coroutines.delay
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.glance.LocalContext
+import androidx.glance.layout.ContentScale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -169,10 +172,19 @@ private fun UvCard(d: UvData, error: String?, refreshing: Boolean, status: Strin
     val showAdvice = size.height >= 165.dp || !showChart
     val roomy = size.width >= 280.dp
 
+    // Background: a still frame of the scene that matches the weather now.
+    // A new random frame is drawn each time the data is rechecked (checkedAt is the seed).
+    val scene = SkyScene.pick(d)
+    val dm = LocalContext.current.resources.displayMetrics
+    val sky = remember(scene, d.checkedAt, size) {
+        runCatching { skyBitmap(dm, scene, size.width.value, size.height.value, d.checkedAt) }.getOrNull()
+    }
+    val bg = if (sky != null) ImageProvider(sky) else ImageProvider(backgroundFor(level))
+
     Box(
         modifier = GlanceModifier
             .fillMaxSize()
-            .background(ImageProvider(backgroundFor(level)))
+            .background(bg, ContentScale.FillBounds)
             .cornerRadius(28.dp)
             .clickable(actionRunCallback<RefreshAction>())
             .padding(horizontal = 18.dp, vertical = 14.dp),
@@ -186,7 +198,7 @@ private fun UvCard(d: UvData, error: String?, refreshing: Boolean, status: Strin
             ) {
                 Column {
                     Text(
-                        text = if (level == UvLevel.NIGHT) "🌙  מדד UV" else "☀️  מדד UV",
+                        text = "${scene.icon}  מדד UV",
                         style = TextStyle(color = WhiteSoft, fontSize = 13.sp, fontWeight = FontWeight.Medium),
                     )
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -242,7 +254,7 @@ private fun UvCard(d: UvData, error: String?, refreshing: Boolean, status: Strin
                     )
                 } else if (showAdvice) {
                     Text(
-                        text = level.advice,
+                        text = scene.advice ?: level.advice,
                         style = TextStyle(color = White, fontSize = 12.sp, fontWeight = FontWeight.Medium),
                         maxLines = 1,
                     )

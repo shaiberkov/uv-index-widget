@@ -29,7 +29,16 @@ data class ForecastCache(
     val dayStarts: List<Long>,      // epoch ms of local midnight
     val sunrise: List<Long>,
     val sunset: List<Long>,
+    // Weather conditions per hour, used to pick the widget's background scene.
+    // Empty in caches saved by versions before backgrounds existed.
+    val code: List<Int> = emptyList(),       // WMO weather code
+    val cloud: List<Int> = emptyList(),      // cloud cover %
+    val wind: List<Double> = emptyList(),    // km/h
+    val gust: List<Double> = emptyList(),    // km/h
+    val vis: List<Double> = emptyList(),     // meters
 ) {
+    val hasWeather get() = code.isNotEmpty() && code.size == hourTimes.size
+
     /** True while the forecast still has data for [t]. */
     fun covers(t: Long) = hourTimes.isNotEmpty() && t >= hourTimes.first() && t < hourTimes.last() + HOUR
 
@@ -71,14 +80,26 @@ data class ForecastCache(
             place = place,
             updatedAt = fetchedAt,
             checkedAt = now,
+            weatherCode = code.getOrElse(i) { -1 },
+            cloudCover = cloud.getOrElse(i) { -1 },
+            windKmh = wind.getOrElse(i) { 0.0 },
+            gustKmh = gust.getOrElse(i) { 0.0 },
+            visibilityM = vis.getOrElse(i) { -1.0 },
+            rainRecently = (i - 2 until i).any { k -> code.getOrElse(k) { -1 }.let(::isWet) },
+            sunriseAt = sunrise[d],
+            sunsetAt = sunset[d],
         )
     }
+
+    private fun isWet(c: Int) = c in 51..67 || c in 80..82 || c in 95..99
 
     fun toJson(): String = JSONObject().apply {
         put("fetchedAt", fetchedAt); put("lat", lat); put("lon", lon); put("place", place)
         put("hourTimes", JSONArray(hourTimes)); put("uv", JSONArray(uv)); put("temp", JSONArray(temp))
         put("isDay", JSONArray(isDay)); put("dayStarts", JSONArray(dayStarts))
         put("sunrise", JSONArray(sunrise)); put("sunset", JSONArray(sunset))
+        put("code", JSONArray(code)); put("cloud", JSONArray(cloud)); put("wind", JSONArray(wind))
+        put("gust", JSONArray(gust)); put("vis", JSONArray(vis))
     }.toString()
 
     companion object {
@@ -95,6 +116,11 @@ data class ForecastCache(
                 temp = o.getJSONArray("temp").doubles(), isDay = o.getJSONArray("isDay").ints(),
                 dayStarts = o.getJSONArray("dayStarts").longs(),
                 sunrise = o.getJSONArray("sunrise").longs(), sunset = o.getJSONArray("sunset").longs(),
+                code = o.optJSONArray("code")?.ints() ?: emptyList(),
+                cloud = o.optJSONArray("cloud")?.ints() ?: emptyList(),
+                wind = o.optJSONArray("wind")?.doubles() ?: emptyList(),
+                gust = o.optJSONArray("gust")?.doubles() ?: emptyList(),
+                vis = o.optJSONArray("vis")?.doubles() ?: emptyList(),
             )
         }
 
@@ -112,6 +138,11 @@ data class ForecastCache(
                 dayStarts = secs(d.getJSONArray("time")),
                 sunrise = secs(d.getJSONArray("sunrise")),
                 sunset = secs(d.getJSONArray("sunset")),
+                code = h.optJSONArray("weather_code")?.ints() ?: emptyList(),
+                cloud = h.optJSONArray("cloud_cover")?.ints() ?: emptyList(),
+                wind = h.optJSONArray("wind_speed_10m")?.doubles() ?: emptyList(),
+                gust = h.optJSONArray("wind_gusts_10m")?.doubles() ?: emptyList(),
+                vis = h.optJSONArray("visibility")?.doubles() ?: emptyList(),
             )
         }
     }
