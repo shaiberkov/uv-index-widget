@@ -17,12 +17,24 @@ data class UvData(
     val place: String,
     val updatedAt: Long,           // when the data came from the server
     val checkedAt: Long = updatedAt, // when the widget last recomputed "now"
+    // Weather right now, for the background scene (defaults = unknown).
+    val weatherCode: Int = -1,       // WMO code
+    val cloudCover: Int = -1,        // %
+    val windKmh: Double = 0.0,
+    val gustKmh: Double = 0.0,
+    val visibilityM: Double = -1.0,
+    val rainRecently: Boolean = false, // rain in the previous two hours
+    val sunriseAt: Long = 0,         // epoch ms, today
+    val sunsetAt: Long = 0,
 ) {
     fun toJson(): String = JSONObject().apply {
         put("uvNow", uvNow); put("isDay", isDay); put("uvMaxToday", uvMaxToday)
         put("peakHour", peakHour); put("hourly", JSONArray(hourly)); put("currentHour", currentHour)
         put("sunrise", sunrise); put("sunset", sunset); put("temperature", temperature)
         put("place", place); put("updatedAt", updatedAt); put("checkedAt", checkedAt)
+        put("weatherCode", weatherCode); put("cloudCover", cloudCover); put("windKmh", windKmh)
+        put("gustKmh", gustKmh); put("visibilityM", visibilityM); put("rainRecently", rainRecently)
+        put("sunriseAt", sunriseAt); put("sunsetAt", sunsetAt)
     }.toString()
 
     companion object {
@@ -42,6 +54,14 @@ data class UvData(
                 place = o.getString("place"),
                 updatedAt = o.getLong("updatedAt"),
                 checkedAt = o.optLong("checkedAt", o.getLong("updatedAt")),
+                weatherCode = o.optInt("weatherCode", -1),
+                cloudCover = o.optInt("cloudCover", -1),
+                windKmh = o.optDouble("windKmh", 0.0),
+                gustKmh = o.optDouble("gustKmh", 0.0),
+                visibilityM = o.optDouble("visibilityM", -1.0),
+                rainRecently = o.optBoolean("rainRecently", false),
+                sunriseAt = o.optLong("sunriseAt", 0),
+                sunsetAt = o.optLong("sunsetAt", 0),
             )
         }
     }

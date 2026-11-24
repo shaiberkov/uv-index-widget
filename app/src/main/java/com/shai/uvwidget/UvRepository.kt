@@ -86,7 +86,8 @@ object UvRepository {
 
     private fun buildUrl(lat: Double, lon: Double) =
         String.format(Locale.US, "https://api.open-meteo.com/v1/forecast?latitude=%.3f&longitude=%.3f", lat, lon) +
-            "&hourly=uv_index,temperature_2m,is_day&daily=sunrise,sunset" +
+            "&hourly=uv_index,temperature_2m,is_day,weather_code,cloud_cover,wind_speed_10m,wind_gusts_10m,visibility" +
+            "&daily=sunrise,sunset" +
             "&timezone=auto&timeformat=unixtime&forecast_days=2"
 
     private fun download(url: String): String {
